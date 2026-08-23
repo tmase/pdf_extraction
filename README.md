@@ -1,17 +1,9 @@
-# Risk Report Data Extraction -- Working Prototype
+# Risk Report Data Extraction  
 
-A working prototype of the pipeline described in UVIMCO_project_proposal.pdf.
-GOALS 
-1. Extract specific data points from .pdf documents. 
-2. Ensure collected data is accurate and that all relevant data is being collected. 
-3. Create a solution that is adaptable to document variety and volume, and that allows for 
-human-in-the-loop improvements. 
-4. Store extracted data and make it available to downstream applications. 
+A working prototype of a .pdf extraction pipeline for risk reports, which extracts the text from .pdf documents, leverages an LLM for text processing, stores the data, has an easy-to-use interface for human input and makes the extracted data
+available via API. The entire workflow includes an audit log with the actions taken at each step.
 
 PROPOSED WORKFLOW 
-An agentic model that extracts the text from .pdf documents, leverages an LLM for text 
-processing, stores the data, has an easy-to-use interface for human input and makes the extracted data
-available via API. The entire workflow includes an audit log with the actions taken at each step.
 
 | Proposal step | Implementation |
 |---|---|
