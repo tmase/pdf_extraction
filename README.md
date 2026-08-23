@@ -14,34 +14,6 @@ PROPOSED WORKFLOW
 | Human-in-the-loop | `review/notifier.py` (simulated email task) + `dashboard/app.py` (Streamlit review queue, approve/correct/reject, prompt editing) + `pipeline/orchestrator.record_review_decision` (feeds corrections back into `ground_truth` and, optionally, into the agent's prompt). |
 | Audit log | `audit.py` + `AuditLogEntry` model: every step in every component writes an append-only row (timestamp, actor, document, step, action, result, JSON details). Nothing in the codebase updates or deletes a log row. |
 
-## How to upgrade for production
-
-This runs entirely on your machine with no external services, which meant a few
-substitutions for the production technologies named in the proposal:
-
-- **Postgres** `db/database.py` reads `DATABASE_URL` from `config.py`.
-  Point it at a Postgres URL and the SQLAlchemy models need no changes.
-- **Chroma** Chroma's built-in
-  embedding function downloads an ONNX model from the internet on first use; that
-  network call is blocked in this sandbox. `vectorstore/embeddings.py` implements a
-  small offline hashing-trick embedder instead, so the vector store works without
-  network access. It's good enough to demonstrate chunking/indexing/retrieval, but
-  it is *not* a real semantic embedding model -- swap in OpenAI/Voyage/a cached
-  sentence-transformer for real RAG quality.
-- **AWS** Uploaded PDFs live in `storage/uploaded_pdfs/`;
-  swap for S3 behind the same `config.UPLOAD_DIR` seam.
-- **Real email** `review/notifier.py` prints `[SIMULATED EMAIL]` and
-  logs an `EmailTask` row instead of calling SMTP/SES. The task queue is real; only
-  the transport is stubbed.
-- **SEC Form ADV / external reference data** The `ground_truth`
-  table's `source` column already distinguishes `human_verified` / `learned` /
-  `form_adv` rows; a real Form ADV fetch (e.g. from `data.sec.gov`) just needs to
-  insert rows with `source="form_adv"`.
-- **Camelot table extraction** needs Ghostscript for some PDF types; it isn't
-  installed in this sandbox, so the extractor automatically falls back to
-  `pdfplumber` for tables. Both paths are exercised and logged (see
-  `extraction_method` on each document).
-
 ## Setup
 
 ```bash
@@ -133,6 +105,34 @@ tests/test_pipeline.py       # pytest suite
 
 Fields to extract live in `config.FIELD_SCHEMA` (name -> type). Add a field there,
 add a regex to `llm/fund_analyst_agent._PATTERNS` for the mock extractor (the real
-Claude prompt in `db/seed.DEFAULT_SYSTEM_PROMPT` already asks it to extract
+Claude prompt in `db/seed.DEFAULT_SYSTEM_PROMPT` already asks it to extract.
+
+## How to upgrade for production
+
+This runs entirely on your machine with no external services, which meant a few
+substitutions for the production technologies named in the proposal:
+
+- **Postgres** `db/database.py` reads `DATABASE_URL` from `config.py`.
+  Point it at a Postgres URL and the SQLAlchemy models need no changes.
+- **Chroma** Chroma's built-in
+  embedding function downloads an ONNX model from the internet on first use; that
+  network call is blocked in this sandbox. `vectorstore/embeddings.py` implements a
+  small offline hashing-trick embedder instead, so the vector store works without
+  network access. It's good enough to demonstrate chunking/indexing/retrieval, but
+  it is *not* a real semantic embedding model -- swap in OpenAI/Voyage/a cached
+  sentence-transformer for real RAG quality.
+- **AWS** Uploaded PDFs live in `storage/uploaded_pdfs/`;
+  swap for S3 behind the same `config.UPLOAD_DIR` seam.
+- **Real email** `review/notifier.py` prints `[SIMULATED EMAIL]` and
+  logs an `EmailTask` row instead of calling SMTP/SES. The task queue is real; only
+  the transport is stubbed.
+- **SEC Form ADV / external reference data** The `ground_truth`
+  table's `source` column already distinguishes `human_verified` / `learned` /
+  `form_adv` rows; a real Form ADV fetch (e.g. from `data.sec.gov`) just needs to
+  insert rows with `source="form_adv"`.
+- **Camelot table extraction** needs Ghostscript for some PDF types; it isn't
+  installed in this sandbox, so the extractor automatically falls back to
+  `pdfplumber` for tables. Both paths are exercised and logged (see
+  `extraction_method` on each document).
 "exactly these fields," so update the field list there too), and, if it's numeric,
 optionally add a bootstrap range to `validation/validators.STATIC_BOUNDS`.
