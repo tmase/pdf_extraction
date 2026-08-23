@@ -45,7 +45,7 @@ substitutions for the production technologies named in the proposal:
 ## Setup
 
 ```bash
-cd uvimco_pdf_pipeline
+cd pdf_extraction
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
