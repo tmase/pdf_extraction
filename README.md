@@ -19,21 +19,21 @@ PROPOSED WORKFLOW
 This runs entirely on your machine with no external services, which meant a few
 substitutions for the production technologies named in the proposal:
 
-- **Postgres -> SQLite.** `db/database.py` reads `DATABASE_URL` from `config.py`.
+- **Postgres** `db/database.py` reads `DATABASE_URL` from `config.py`.
   Point it at a Postgres URL and the SQLAlchemy models need no changes.
-- **Chroma's default embeddings -> a local hashing embedder.** Chroma's built-in
+- **Chroma** Chroma's built-in
   embedding function downloads an ONNX model from the internet on first use; that
   network call is blocked in this sandbox. `vectorstore/embeddings.py` implements a
   small offline hashing-trick embedder instead, so the vector store works without
   network access. It's good enough to demonstrate chunking/indexing/retrieval, but
   it is *not* a real semantic embedding model -- swap in OpenAI/Voyage/a cached
   sentence-transformer for real RAG quality.
-- **AWS -> local filesystem.** Uploaded PDFs live in `storage/uploaded_pdfs/`;
+- **AWS** Uploaded PDFs live in `storage/uploaded_pdfs/`;
   swap for S3 behind the same `config.UPLOAD_DIR` seam.
-- **Real email -> simulated.** `review/notifier.py` prints `[SIMULATED EMAIL]` and
+- **Real email** `review/notifier.py` prints `[SIMULATED EMAIL]` and
   logs an `EmailTask` row instead of calling SMTP/SES. The task queue is real; only
   the transport is stubbed.
-- **SEC Form ADV / external reference data -> not wired up.** The `ground_truth`
+- **SEC Form ADV / external reference data** The `ground_truth`
   table's `source` column already distinguishes `human_verified` / `learned` /
   `form_adv` rows; a real Form ADV fetch (e.g. from `data.sec.gov`) just needs to
   insert rows with `source="form_adv"`.
