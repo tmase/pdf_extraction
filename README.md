@@ -1,23 +1,28 @@
 # Risk Report Data Extraction -- Working Prototype
 
-A runnable implementation of the pipeline described in `UVIMCO_project_proposal.pdf`:
-an agentic model that extracts text from PDF risk reports, uses an LLM to pull out
-structured fields, validates them deterministically, stores everything with an
-append-only audit trail, and routes anything uncertain to a human reviewer whose
-feedback improves the system over time.
+A working prototype of the pipeline described in UVIMCO_project_proposal.pdf.
+GOALS 
+1. Extract specific data points from .pdf documents. 
+2. Ensure collected data is accurate and that all relevant data is being collected. 
+3. Create a solution that is adaptable to document variety and volume, and that allows for 
+human-in-the-loop improvements. 
+4. Store extracted data and make it available to downstream applications. 
 
-## How this maps to the proposal
+PROPOSED WORKFLOW 
+An agentic model that extracts the text from .pdf documents, leverages an LLM for text 
+processing, stores the data, has an easy-to-use interface for human input and makes the extracted data
+available via API. The entire workflow includes an audit log with the actions taken at each step.
 
 | Proposal step | Implementation |
 |---|---|
-| Step 1 -- Text extraction (no LLM) | `extraction/text_extractor.py`: `pypdf` for text, `camelot` for tables (falls back to `pdfplumber` if Ghostscript isn't installed), `pytesseract` OCR for pages with no extractable text. |
-| Step 2 -- Text processing (LLM) | `llm/fund_analyst_agent.py`: a "Fund Analyst Agent" whose prompt lives in the database (`prompt_templates` table, editable from the dashboard) rather than a markdown file. Calls the real Claude API if `ANTHROPIC_API_KEY` is set; otherwise falls back to a deterministic mock extractor so the whole pipeline still runs. |
-| Step 3 -- Validation & reconciliation (no LLM) | `validation/validators.py`: type checks, static sanity bounds, and a *dynamic* range check (z-score against a `ground_truth` table of prior human-approved values, standing in for the "database of ground truth" + SEC Form ADV data mentioned in the proposal). |
+| Step 1 -- Text extraction (no LLM) | `extraction/text_extractor.py`: `pypdf` for text, `camelot` for tables, `pytesseract` OCR for pages with no extractable text. |
+| Step 2 -- Text processing (LLM) | `llm/fund_analyst_agent.py`: a "Fund Analyst Agent" whose prompts can be edited via a user dashboard instead of  markdown file. Calls the Claude API if `ANTHROPIC_API_KEY` is set; otherwise, uses a mock extractor. |
+| Step 3 -- Validation & reconciliation (no LLM) | `validation/validators.py`: type checks, static sanity bounds, and a dynamic range check that leverages statistical techniques and Form ADV data from a ground truth database. |
 | Step 4 -- Loading & dissemination | `db/models.py` (structured store, SQLite standing in for Postgres) + `vectorstore/store.py` (Chroma, local/offline embedding function) + `api/main.py` (FastAPI for downstream applications). |
 | Human-in-the-loop | `review/notifier.py` (simulated email task) + `dashboard/app.py` (Streamlit review queue, approve/correct/reject, prompt editing) + `pipeline/orchestrator.record_review_decision` (feeds corrections back into `ground_truth` and, optionally, into the agent's prompt). |
 | Audit log | `audit.py` + `AuditLogEntry` model: every step in every component writes an append-only row (timestamp, actor, document, step, action, result, JSON details). Nothing in the codebase updates or deletes a log row. |
 
-## What's simplified for a local prototype (and how to upgrade it)
+## How to upgrade for production
 
 This runs entirely on your machine with no external services, which meant a few
 substitutions for the production technologies named in the proposal:
@@ -45,15 +50,12 @@ substitutions for the production technologies named in the proposal:
   `pdfplumber` for tables. Both paths are exercised and logged (see
   `extraction_method` on each document).
 
-None of these are deep architectural changes -- each one is a single module with a
-clearly marked seam (`config.py` for storage locations/credentials,
-`vectorstore/embeddings.py` for the embedding function, `review/notifier.py` for
-the send step).
-
 ## Setup
 
 ```bash
 cd uvimco_pdf_pipeline
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # optional -- only needed for real Claude calls
 ```
@@ -71,26 +73,17 @@ ANTHROPIC_API_KEY=sk-ant-...
 # 1. Create the database and seed default prompts / ground truth history
 python cli.py init-db
 
-# 2. Generate a couple of synthetic sample risk reports to try it on
-python cli.py generate-samples
-
-# 3. Run the full pipeline (extraction -> LLM -> validation -> storage)
+# 2. Run the full pipeline (extraction -> LLM -> validation -> storage)
 python cli.py ingest sample_data/pdfs
 
-# 4. See what needs a human's attention
+# 3. See what needs a human's attention
 python cli.py review-queue
 
-# 5. See everything the pipeline did, step by step
+# 4. Check audit log
 python cli.py audit-log
 ```
 
-Once you have your own risk report PDFs, drop them anywhere and run:
-
-```bash
-python cli.py ingest /path/to/your/reports/
-```
-
-## Interactive dashboard (human review + prompt editing)
+## Preview the interactive dashboard (human review + prompt editing)
 
 ```bash
 streamlit run dashboard/app.py
@@ -130,8 +123,7 @@ feedback, and the vector store.
 ```
 config.py                    # all settings/seams (DB URL, LLM key/model, thresholds)
 audit.py                     # append-only audit log helper
-db/models.py                 # SQLAlchemy schema (documents, fields, audit log,
-                              #   ground truth, prompts, email tasks)
+db/models.py                 # database schema (SQLAlchemy)
 db/seed.py                   # default agent prompt + bootstrap ground-truth values
 extraction/text_extractor.py # Step 1: pypdf + camelot/pdfplumber + tesseract OCR
 llm/fund_analyst_agent.py    # Step 2: Claude API or mock extractor
@@ -141,7 +133,6 @@ review/notifier.py           # simulated SME email notifications
 pipeline/orchestrator.py     # wires Steps 1-4 together + review feedback loop
 api/main.py                  # FastAPI app for downstream consumers
 dashboard/app.py             # Streamlit SME review + prompt-editing UI
-sample_data/generate_sample_pdfs.py  # synthetic demo PDFs (one clean, one flagged)
 cli.py                       # command-line entry point
 tests/test_pipeline.py       # pytest suite
 ```

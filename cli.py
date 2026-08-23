@@ -3,7 +3,6 @@ Command-line entry point for the prototype.
 
 Usage:
     python cli.py init-db                 # create tables + seed prompts/ground truth
-    python cli.py generate-samples        # write demo PDFs to sample_data/pdfs/
     python cli.py ingest <file-or-folder> # run the full pipeline on one or more PDFs
     python cli.py review-queue            # print fields currently awaiting human review
     python cli.py audit-log [--doc N]     # print the audit trail
@@ -23,13 +22,6 @@ from pipeline.orchestrator import process_document
 def cmd_init_db(_args):
     init_db()
     print("Database initialized (tables created, default prompt + ground truth seeded).")
-
-
-def cmd_generate_samples(_args):
-    from sample_data.generate_sample_pdfs import generate
-    paths = generate()
-    for p in paths:
-        print(f"generated {p}")
 
 
 def cmd_ingest(args):
@@ -91,7 +83,6 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("init-db").set_defaults(func=cmd_init_db)
-    sub.add_parser("generate-samples").set_defaults(func=cmd_generate_samples)
 
     p_ingest = sub.add_parser("ingest")
     p_ingest.add_argument("path", help="A PDF file or a folder of PDFs")
